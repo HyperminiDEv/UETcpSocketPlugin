@@ -1,17 +1,19 @@
-# UE4 TCP Socket Plugin
-Tcp Socket Plugin for Unreal Engine 4 facilitates communication with a TCP server purely in blueprints. Client-only functionality. Built version can be downloaded [here](https://unrealengine.com/marketplace/en-US/product/tcp-socket-plugin).
+# UE TCP Socket Plugin
+Based on []
+Tcp Socket Plugin for Unreal Engine  facilitates communication with a TCP server purely in blueprints. Client-only functionality.
 
 # List of Features
 - Multiple connections
+- Uses instance subsystem
 - Multi-threading: each connection runs on its own thread
 - Detects disconnects as soon as they happen
 - Event dispatchers: OnConnected, OnDisconnected (also triggers when connection fails), OnMessageReceived
-- Serialize and deserialize basic types: UInt8, Int32, Int64, Float (4 and 8 bytes), String
+- Serialize and deserialize basic types: UInt8, Int32, Int64, Float, String
 - Free and open source under MIT license
 
 # Usage in Blueprints
 Create a blueprint actor inheriting from TcpSocketConnection, drop it into level and use these nodes:
-![Alt text](/functionality.jpg?raw=true "Functionality")
+![Alt text](/functionality.png?raw=true "Functionality")
 
 # Usage in C++
 This is only an example.
