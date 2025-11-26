@@ -15,26 +15,24 @@ DECLARE_DYNAMIC_DELEGATE_OneParam(FTcpSocketConnectDelegate, int32, ConnectionId
 DECLARE_DYNAMIC_DELEGATE_TwoParams(FTcpSocketReceivedMessageDelegate, int32, ConnectionId, UPARAM(ref) TArray<uint8>&, Message);
 
 UCLASS(Blueprintable, BlueprintType)
-class TCPSOCKETPLUGIN_API ATcpSocketConnection : public AActor
+class TCPSOCKETPLUGIN_API UTcpSocketConnection : public UGameInstanceSubsystem
 {
 	GENERATED_BODY()
 	
+
 public:	
 	// Sets default values for this actor's properties
-	ATcpSocketConnection();
+	UTcpSocketConnection();
 
 protected:
-	// Called when the game starts or when spawned
-	virtual void BeginPlay() override;
-	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
+	virtual void Deinitialize() override;
 
-public:	
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
+public:
 
 	/* Returns the ID of the new connection. */
 	UFUNCTION(BlueprintCallable, Category = "Socket")
-	void Connect(const FString& ipAddress, int32 port, 
+	bool Connect(const FString& ipAddress, int32 port, 
 		const FTcpSocketDisconnectDelegate& OnDisconnected, const FTcpSocketConnectDelegate& OnConnected,
 		const FTcpSocketReceivedMessageDelegate& OnMessageReceived, int32& ConnectionId);
 
@@ -49,7 +47,7 @@ public:
 
 	/* 
 	When hitting Stop in PIE while a connection is being established (it's a blocking operation that takes a while to timeout),
-	our ATcpSocketConnection actor will be destroyed, an then the thread will send a message through AsyncTask to call ExecuteOnConnected, 
+	our UTcpSocketConnection actor will be destroyed, an then the thread will send a message through AsyncTask to call ExecuteOnConnected, 
 	ExecuteOnDisconnected, or ExecuteOnMessageReceived.
 
 	When we enter their code, "this" will point to random memory.
@@ -58,13 +56,13 @@ public:
 	*/
 
 	//UFUNCTION(Category = "Socket")	
-	void ExecuteOnConnected(int32 WorkerId, TWeakObjectPtr<ATcpSocketConnection> thisObj);
+	void ExecuteOnConnected(int32 WorkerId, TWeakObjectPtr<UTcpSocketConnection> thisObj);
 
 	//UFUNCTION(Category = "Socket")
-	void ExecuteOnDisconnected(int32 WorkerId, TWeakObjectPtr<ATcpSocketConnection> thisObj);
+	void ExecuteOnDisconnected(int32 WorkerId, TWeakObjectPtr<UTcpSocketConnection> thisObj);
 
 	//UFUNCTION(Category = "Socket")
-	void ExecuteOnMessageReceived(int32 ConnectionId, TWeakObjectPtr<ATcpSocketConnection> thisObj);
+	void ExecuteOnMessageReceived(int32 ConnectionId, TWeakObjectPtr<UTcpSocketConnection> thisObj);
 
 	UFUNCTION(BlueprintPure, meta = (DisplayName = "Append Bytes", CommutativeAssociativeBinaryOperator = "true"), Category = "Socket")
 	static TArray<uint8> Concat_BytesBytes(TArray<uint8> A, TArray<uint8> B);
@@ -89,10 +87,6 @@ public:
 	UFUNCTION(BlueprintPure, meta = (DisplayName = "Int64 To Bytes", CompactNodeTitle = "->", Keywords = "cast convert", BlueprintAutocast), Category = "Socket")
 	static TArray<uint8> Conv_LongToBytes(int64 InLong);
 
-	/** Converts a float (double-precision) to an array of bytes */
-	UFUNCTION(BlueprintPure, meta = (DisplayName = "Float (double-precision) To Bytes", CompactNodeTitle = "8->", Keywords = "cast convert", BlueprintAutocast), Category = "Socket")
-	static TArray<uint8> Conv_DoubleToBytes(double InDouble);
-
 	/** Converts a string to an array of bytes */
 	UFUNCTION(BlueprintPure, meta = (DisplayName = "String To Bytes", CompactNodeTitle = "->", Keywords = "cast convert", BlueprintAutocast), Category = "Socket")
 	static TArray<uint8> Conv_StringToBytes(const FString& InStr);
@@ -115,9 +109,15 @@ public:
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Read Float (single-precision)", Keywords = "read float"), Category = "Socket")
 	static float Message_ReadFloat(UPARAM(ref) TArray<uint8>& Message);
 
-	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Read Float (double-precision)", Keywords = "read double"), Category = "Socket")
-	static double Message_ReadDouble(UPARAM(ref) TArray<uint8>& Message);
 
+
+private:
+
+	/** Internal version using true double precision */
+	static TArray<uint8> Conv_DoubleToBytes_Internal(double InDouble);
+	static double Message_ReadDouble_Internal(TArray<uint8>& Message);
+
+public: 
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Read String", Keywords = "read string"), Category = "Socket")
 	static FString Message_ReadString(UPARAM(ref) TArray<uint8>& Message, int32 StringLength);
 
@@ -130,6 +130,10 @@ public:
 	/* Buffer size in bytes. Currently not used. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Socket")
 	int32 SendBufferSize = 16384;
+
+	/* Maximum number of simultaneous sockets. 0 means no limit. */ 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Socket")
+	int32 SocketLimit = 0;
 
 	/* Buffer size in bytes. It's set only when creating a socket, never afterwards. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Socket")
@@ -159,7 +163,7 @@ private:
 	class FSocket* Socket = nullptr;
 	FString ipAddress;
 	int port;
-	TWeakObjectPtr<ATcpSocketConnection> ThreadSpawnerActor;
+	TWeakObjectPtr<UTcpSocketConnection> ThreadSpawnerActor;
 	int32 id;
 	int32 RecvBufferSize;
 	int32 ActualRecvBufferSize;
@@ -175,7 +179,7 @@ private:
 public:
 
 	//Constructor / Destructor
-	FTcpSocketWorker(FString inIp, const int32 inPort, TWeakObjectPtr<ATcpSocketConnection> InOwner, int32 inId, int32 inRecvBufferSize, int32 inSendBufferSize, float inTimeBetweenTicks);
+	FTcpSocketWorker(FString inIp, const int32 inPort, TWeakObjectPtr<UTcpSocketConnection> InOwner, int32 inId, int32 inRecvBufferSize, int32 inSendBufferSize, float inTimeBetweenTicks);
 	virtual ~FTcpSocketWorker();
 
 	/*  Starts processing of the connection. Needs to be called immediately after construction	 */
